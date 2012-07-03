@@ -268,28 +268,6 @@ egg_property_cell_renderer_get_property (GObject    *object,
 }
 
 static void
-egg_property_cell_renderer_dispose (GObject *object)
-{
-    EggPropertyCellRendererPrivate *priv = EGG_PROPERTY_CELL_RENDERER_GET_PRIVATE (object);
-
-    g_object_unref (priv->text_renderer);
-    g_object_unref (priv->spin_renderer);
-    g_object_unref (priv->toggle_renderer);
-
-    G_OBJECT_CLASS (egg_property_cell_renderer_parent_class)->dispose (object);
-}
-
-static void
-egg_property_cell_renderer_finalize (GObject *object)
-{
-    EggPropertyCellRendererPrivate *priv = EGG_PROPERTY_CELL_RENDERER_GET_PRIVATE (object);
-
-    g_hash_table_destroy (priv->adjustments);
-
-    G_OBJECT_CLASS (egg_property_cell_renderer_parent_class)->finalize (object);
-}
-
-static void
 egg_property_cell_renderer_class_init (EggPropertyCellRendererClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
@@ -297,8 +275,6 @@ egg_property_cell_renderer_class_init (EggPropertyCellRendererClass *klass)
 
     gobject_class->set_property = egg_property_cell_renderer_set_property;
     gobject_class->get_property = egg_property_cell_renderer_get_property;
-    gobject_class->dispose = egg_property_cell_renderer_dispose;
-    gobject_class->finalize = egg_property_cell_renderer_finalize;
 
     cellrenderer_class->render = egg_property_cell_renderer_render;
     cellrenderer_class->get_size = egg_property_cell_renderer_get_size;

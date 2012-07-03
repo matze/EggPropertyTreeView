@@ -21,7 +21,7 @@
 static gboolean
 on_delete_event (GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
-    return TRUE;
+    return FALSE;
 }
 
 int
