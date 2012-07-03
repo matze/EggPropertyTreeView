@@ -13,4 +13,4 @@ tree-view-test: $(OBJ)
 
 clean:
 	rm -f $(OBJ)
-	rm -f renderer-test
+	rm -f tree-view-test
