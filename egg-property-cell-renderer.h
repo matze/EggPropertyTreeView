@@ -46,8 +46,9 @@ struct _EggPropertyCellRendererClass
     GtkCellRendererClass parent_class;
 };
 
-GType               egg_property_cell_renderer_get_type (void)              G_GNUC_CONST;
-GtkCellRenderer*    egg_property_cell_renderer_new      (GObject *object);
+GType               egg_property_cell_renderer_get_type (void);
+GtkCellRenderer*    egg_property_cell_renderer_new      (GObject         *object,
+                                                         GtkListStore    *list_store);
 
 G_END_DECLS
 
