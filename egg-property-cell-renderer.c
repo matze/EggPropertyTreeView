@@ -136,10 +136,12 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
             change_adjustment = TRUE;
             break;
 
-        case G_TYPE_UINT:
-        case G_TYPE_UINT64:
         case G_TYPE_INT:
+        case G_TYPE_UINT:
+        case G_TYPE_LONG:
+        case G_TYPE_ULONG:
         case G_TYPE_INT64:
+        case G_TYPE_UINT64:
             priv->renderer = priv->spin_renderer;
             g_object_set (renderer, "mode", GTK_CELL_RENDERER_MODE_EDITABLE, NULL);
             g_object_set (priv->renderer, "digits", 0, NULL);
@@ -154,6 +156,8 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
             break;
 
         /* combo renderers */
+        default:
+            g_print ("no idea how to handle %s -> %s\n", prop_name, g_type_name (pspec->value_type));
     }
 
     /*
@@ -172,10 +176,12 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
                 break;
             }
 
-        case G_TYPE_UINT:
-        case G_TYPE_UINT64:
         case G_TYPE_INT:
+        case G_TYPE_UINT:
+        case G_TYPE_LONG:
+        case G_TYPE_ULONG:
         case G_TYPE_INT64:
+        case G_TYPE_UINT64:
         case G_TYPE_FLOAT:
         case G_TYPE_DOUBLE:
             get_string_double_repr (priv->object, prop_name, &text, &number);
@@ -209,17 +215,23 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
         GtkObject *adjustment = NULL;
 
         switch (pspec->value_type) {
-            case G_TYPE_UINT:
-                adjustment = gtk_typed_adjustment_new (GParamSpecUInt, pspec, number, 1, 10);
-                break;
-            case G_TYPE_UINT64:
-                adjustment = gtk_typed_adjustment_new (GParamSpecUInt64, pspec, number, 1, 10);
-                break;
             case G_TYPE_INT:
                 adjustment = gtk_typed_adjustment_new (GParamSpecInt, pspec, number, 1, 10);
                 break;
+            case G_TYPE_UINT:
+                adjustment = gtk_typed_adjustment_new (GParamSpecUInt, pspec, number, 1, 10);
+                break;
+            case G_TYPE_LONG:
+                adjustment = gtk_typed_adjustment_new (GParamSpecLong, pspec, number, 1, 10);
+                break;
+            case G_TYPE_ULONG:
+                adjustment = gtk_typed_adjustment_new (GParamSpecULong, pspec, number, 1, 10);
+                break;
             case G_TYPE_INT64:
                 adjustment = gtk_typed_adjustment_new (GParamSpecInt64, pspec, number, 1, 10);
+                break;
+            case G_TYPE_UINT64:
+                adjustment = gtk_typed_adjustment_new (GParamSpecUInt64, pspec, number, 1, 10);
                 break;
             case G_TYPE_FLOAT:
                 adjustment = gtk_typed_adjustment_new (GParamSpecFloat, pspec, number, 0.05, 10);
