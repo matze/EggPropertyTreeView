@@ -15,11 +15,13 @@
    with this library; if not, write to the Free Software Foundation, Inc., 51
    Franklin St, Fifth Floor, Boston, MA 02110, USA */
 
+#include <stdlib.h>
 #include "egg-property-cell-renderer.h"
 
 G_DEFINE_TYPE (EggPropertyCellRenderer, egg_property_cell_renderer, GTK_TYPE_CELL_RENDERER)
 
 #define EGG_PROPERTY_CELL_RENDERER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), EGG_TYPE_PROPERTY_CELL_RENDERER, EggPropertyCellRendererPrivate))
+
 
 struct _EggPropertyCellRendererPrivate
 {
@@ -52,51 +54,106 @@ egg_property_cell_renderer_new (GObject         *object,
     return GTK_CELL_RENDERER (renderer);
 }
 
+static GParamSpec *
+get_pspec_from_object (GObject *object, const gchar *prop_name)
+{
+    GObjectClass *oclass = G_OBJECT_GET_CLASS (object);
+    return g_object_class_find_property (oclass, prop_name);
+}
+
+static void
+get_string_double_repr (GObject *object, const gchar *prop_name, gchar **text, gdouble *number)
+{
+    GParamSpec *pspec;
+    GValue from = { 0 };
+    GValue to_string = { 0 };
+    GValue to_double = { 0 };
+
+    pspec = get_pspec_from_object (object, prop_name);
+    g_value_init (&from, pspec->value_type);
+    g_value_init (&to_string, G_TYPE_STRING);
+    g_value_init (&to_double, G_TYPE_DOUBLE);
+    g_object_get_property (object, prop_name, &from);
+
+    if (g_value_transform (&from, &to_string))
+        *text = g_strdup (g_value_get_string (&to_string));
+    else
+        g_warning ("Could not convert from %s gchar*\n", g_type_name (pspec->value_type));
+
+    if (g_value_transform (&from, &to_double))
+        *number = g_value_get_double (&to_double);
+    else
+        g_warning ("Could not convert from %s to gdouble\n", g_type_name (pspec->value_type));
+}
+
+static void
+clear_adjustment (GObject *object)
+{
+    GtkAdjustment *adjustment;
+
+    g_object_get (object,
+            "adjustment", &adjustment,
+            NULL);
+
+    if (adjustment)
+        g_object_unref (adjustment);
+
+    g_object_set (object,
+            "adjustment", NULL,
+            NULL);
+}
+
 static void
 egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
                                          const gchar                *prop_name)
 {
     EggPropertyCellRendererPrivate *priv;
-    GObjectClass *oclass;
     GParamSpec *pspec;
     gchar *text = NULL;
+    gdouble number;
+    gboolean change_adjustment = FALSE;
 
     priv = EGG_PROPERTY_CELL_RENDERER_GET_PRIVATE (renderer);
-    oclass = G_OBJECT_GET_CLASS (priv->object);
-    pspec = g_object_class_find_property (oclass, prop_name);
+    pspec = get_pspec_from_object (priv->object, prop_name);
 
     /*
      * Set this renderers mode, so that any actions can be forwarded to our
      * child renderers.
      */
     switch (pspec->value_type) {
-        /* spin renderers */
+        /* toggle renderers */
         case G_TYPE_BOOLEAN:
-            g_object_set (renderer,
-                    "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
-                    NULL);
             priv->renderer = priv->toggle_renderer;
+            g_object_set (renderer, "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE, NULL);
             break;
 
+        /* spin renderers */
         case G_TYPE_FLOAT:
         case G_TYPE_DOUBLE:
+            priv->renderer = priv->spin_renderer;
+            g_object_set (renderer, "mode", GTK_CELL_RENDERER_MODE_EDITABLE, NULL);
+            g_object_set (priv->renderer, "digits", 5, NULL);
+            change_adjustment = TRUE;
+            break;
+
         case G_TYPE_UINT:
         case G_TYPE_UINT64:
         case G_TYPE_INT:
         case G_TYPE_INT64:
-            g_object_set (renderer,
-                    "mode", GTK_CELL_RENDERER_MODE_EDITABLE,
-                    NULL);
             priv->renderer = priv->spin_renderer;
+            g_object_set (renderer, "mode", GTK_CELL_RENDERER_MODE_EDITABLE, NULL);
+            g_object_set (priv->renderer, "digits", 0, NULL);
+            change_adjustment = TRUE;
             break;
 
+        /* text renderers */
         case G_TYPE_POINTER:
         case G_TYPE_STRING:
-            g_object_set (renderer,
-                    "mode", GTK_CELL_RENDERER_MODE_EDITABLE,
-                    NULL);
             priv->renderer = priv->text_renderer;
+            g_object_set (renderer, "mode", GTK_CELL_RENDERER_MODE_EDITABLE, NULL);
             break;
+
+        /* combo renderers */
     }
 
     /*
@@ -116,44 +173,12 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
             }
 
         case G_TYPE_UINT:
+        case G_TYPE_UINT64:
         case G_TYPE_INT:
         case G_TYPE_INT64:
         case G_TYPE_FLOAT:
         case G_TYPE_DOUBLE:
-            {
-                GValue from = { 0 };
-                GValue to_string = { 0 };
-                GValue to_double = { 0 };
-
-                g_value_init (&from, pspec->value_type);
-                g_value_init (&to_string, G_TYPE_STRING);
-                g_value_init (&to_double, G_TYPE_DOUBLE);
-                g_object_get_property (priv->object, prop_name, &from);
-
-                if (g_value_transform (&from, &to_string))
-                    text = g_strdup (g_value_get_string (&to_string));
-                else
-                    g_warning ("Could not convert from %s gchar*\n", g_type_name (pspec->value_type));
-
-                if (pspec->flags & G_PARAM_WRITABLE) {
-                    GtkObject *adjustment;
-
-                    g_object_get (priv->renderer,
-                            "adjustment", &adjustment,
-                            NULL);
-
-                    if (adjustment)
-                        g_object_unref (adjustment);
-
-                    g_value_transform (&from, &to_double);
-                    adjustment = gtk_adjustment_new (g_value_get_double (&to_double), 0, 1000, 1, 10, 0);
-
-                    g_object_set (priv->renderer,
-                            "editable", TRUE,
-                            "adjustment", adjustment,
-                            NULL);
-                }
-            }
+            get_string_double_repr (priv->object, prop_name, &text, &number);
             break;
 
         case G_TYPE_STRING:
@@ -173,10 +198,61 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
             break;
     }
 
+    /*
+     * Adjust the adjustment.
+     */
+
+#define gtk_typed_adjustment_new(type, pspec, val, step_inc, page_inc) \
+    gtk_adjustment_new (val, ((type *) pspec)->minimum, ((type *) pspec)->maximum, step_inc, page_inc, 0)
+
+    if (change_adjustment && (pspec->flags & G_PARAM_WRITABLE)) {
+        GtkObject *adjustment = NULL;
+
+        switch (pspec->value_type) {
+            case G_TYPE_UINT:
+                adjustment = gtk_typed_adjustment_new (GParamSpecUInt, pspec, number, 1, 10);
+                break;
+            case G_TYPE_UINT64:
+                adjustment = gtk_typed_adjustment_new (GParamSpecUInt64, pspec, number, 1, 10);
+                break;
+            case G_TYPE_INT:
+                adjustment = gtk_typed_adjustment_new (GParamSpecInt, pspec, number, 1, 10);
+                break;
+            case G_TYPE_INT64:
+                adjustment = gtk_typed_adjustment_new (GParamSpecInt64, pspec, number, 1, 10);
+                break;
+            case G_TYPE_FLOAT:
+                adjustment = gtk_typed_adjustment_new (GParamSpecFloat, pspec, number, 0.05, 10);
+                break;
+            case G_TYPE_DOUBLE:
+                adjustment = gtk_typed_adjustment_new (GParamSpecDouble, pspec, number, 0.05, 10);
+                break;
+        }
+
+        clear_adjustment (G_OBJECT (priv->renderer));
+        g_object_set (priv->renderer,
+                "editable", TRUE,
+                "adjustment", adjustment,
+                NULL);
+    }
+
     if (text != NULL) {
         g_object_set (priv->renderer, "text", text, NULL);
         g_free (text);
     }
+}
+
+static gchar *
+get_prop_name_from_tree_model (GtkTreeModel *model, const gchar *path)
+{
+    GtkTreeIter iter;
+    gchar *prop_name = NULL;
+
+    /* TODO: don't assume column 0 to contain the prop name */
+    if (gtk_tree_model_get_iter_from_string (model, &iter, path))
+        gtk_tree_model_get (model, &iter, 0, &prop_name, -1);
+
+    return prop_name;
 }
 
 static void
@@ -184,27 +260,17 @@ egg_property_cell_renderer_toggle_cb (GtkCellRendererToggle *renderer,
                                       gchar                 *path,
                                       gpointer               user_data)
 {
-    GtkTreeIter iter;
     EggPropertyCellRendererPrivate *priv;
+    gchar *prop_name;
 
     priv = (EggPropertyCellRendererPrivate *) user_data;
+    prop_name = get_prop_name_from_tree_model (GTK_TREE_MODEL (priv->list_store), path);
 
-    if (gtk_tree_model_get_iter_from_string (GTK_TREE_MODEL (priv->list_store), &iter, path)) {
-        gchar *prop_name;
+    if (prop_name != NULL) {
         gboolean activated;
 
-        gtk_tree_model_get (GTK_TREE_MODEL (priv->list_store), &iter,
-                0, &prop_name,
-                -1);
-
-        g_object_get (priv->object,
-                prop_name, &activated,
-                NULL);
-
-        g_object_set (priv->object,
-                prop_name, !activated,
-                NULL);
-
+        g_object_get (priv->object, prop_name, &activated, NULL);
+        g_object_set (priv->object, prop_name, !activated, NULL);
         g_free (prop_name);
     }
 }
@@ -215,7 +281,16 @@ egg_property_cell_renderer_text_edited_cb (GtkCellRendererText  *renderer,
                                            gchar                *new_text,
                                            gpointer              user_data)
 {
-    g_print ("text edited with path=%s and new_text=%s!\n", path, new_text);
+    EggPropertyCellRendererPrivate *priv;
+    gchar *prop_name;
+
+    priv = (EggPropertyCellRendererPrivate *) user_data;
+    prop_name = get_prop_name_from_tree_model (GTK_TREE_MODEL (priv->list_store), path);
+
+    if (prop_name != NULL) {
+        g_object_set (priv->object, prop_name, new_text, NULL);
+        g_free (prop_name);
+    }
 }
 
 static void
@@ -224,28 +299,22 @@ egg_property_cell_renderer_spin_edited_cb (GtkCellRendererText  *renderer,
                                            gchar                *new_text,
                                            gpointer              user_data)
 {
-    GtkTreeIter iter;
     EggPropertyCellRendererPrivate *priv;
+    gchar *prop_name;
 
     priv = (EggPropertyCellRendererPrivate *) user_data;
+    prop_name = get_prop_name_from_tree_model (GTK_TREE_MODEL (priv->list_store), path);
 
-    if (gtk_tree_model_get_iter_from_string (GTK_TREE_MODEL (priv->list_store), &iter, path)) {
-        gchar *prop_name;
-        GObjectClass *oclass;
+    if (prop_name != NULL) {
         GParamSpec *pspec;
         GValue from = { 0 };
         GValue to = { 0 };
 
-        gtk_tree_model_get (GTK_TREE_MODEL (priv->list_store), &iter,
-                0, &prop_name,
-                -1);
-
-        oclass = G_OBJECT_GET_CLASS (priv->object);
-        pspec = g_object_class_find_property (oclass, prop_name);
+        pspec = get_pspec_from_object (priv->object, prop_name);
 
         g_value_init (&from, G_TYPE_DOUBLE);
         g_value_init (&to, pspec->value_type);
-        g_value_set_double (&from, g_ascii_strtod (new_text, NULL));
+        g_value_set_double (&from, strtod (new_text, NULL));
 
         if (g_value_transform (&from, &to))
             g_object_set_property (priv->object, prop_name, &to);
