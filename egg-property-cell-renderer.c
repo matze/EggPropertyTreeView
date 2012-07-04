@@ -157,7 +157,8 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
 
         /* combo renderers */
         default:
-            g_print ("no idea how to handle %s -> %s\n", prop_name, g_type_name (pspec->value_type));
+            /* g_print ("no idea how to handle %s -> %s\n", prop_name, g_type_name (pspec->value_type)); */
+            break;
     }
 
     /*
@@ -204,48 +205,61 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
             break;
     }
 
-    /*
-     * Adjust the adjustment.
-     */
+    if (pspec->flags & G_PARAM_WRITABLE) {
+        if (GTK_IS_CELL_RENDERER_TOGGLE (priv->renderer))
+            g_object_set (priv->renderer, "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE, NULL);
+        else
+            g_object_set (priv->renderer, "foreground", "#000000", NULL);
+
+        if (GTK_IS_CELL_RENDERER_TEXT (priv->renderer)) {
+            g_object_set (priv->renderer,
+                    "editable", TRUE,
+                    "mode", GTK_CELL_RENDERER_MODE_EDITABLE,
+                    NULL);
+        }
+
+        if (GTK_IS_CELL_RENDERER_SPIN (priv->renderer)) {
+            GtkObject *adjustment = NULL;
 
 #define gtk_typed_adjustment_new(type, pspec, val, step_inc, page_inc) \
     gtk_adjustment_new (val, ((type *) pspec)->minimum, ((type *) pspec)->maximum, step_inc, page_inc, 0)
 
-    if (change_adjustment && (pspec->flags & G_PARAM_WRITABLE)) {
-        GtkObject *adjustment = NULL;
+            switch (pspec->value_type) {
+                case G_TYPE_INT:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecInt, pspec, number, 1, 10);
+                    break;
+                case G_TYPE_UINT:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecUInt, pspec, number, 1, 10);
+                    break;
+                case G_TYPE_LONG:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecLong, pspec, number, 1, 10);
+                    break;
+                case G_TYPE_ULONG:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecULong, pspec, number, 1, 10);
+                    break;
+                case G_TYPE_INT64:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecInt64, pspec, number, 1, 10);
+                    break;
+                case G_TYPE_UINT64:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecUInt64, pspec, number, 1, 10);
+                    break;
+                case G_TYPE_FLOAT:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecFloat, pspec, number, 0.05, 10);
+                    break;
+                case G_TYPE_DOUBLE:
+                    adjustment = gtk_typed_adjustment_new (GParamSpecDouble, pspec, number, 0.05, 10);
+                    break;
+            }
 
-        switch (pspec->value_type) {
-            case G_TYPE_INT:
-                adjustment = gtk_typed_adjustment_new (GParamSpecInt, pspec, number, 1, 10);
-                break;
-            case G_TYPE_UINT:
-                adjustment = gtk_typed_adjustment_new (GParamSpecUInt, pspec, number, 1, 10);
-                break;
-            case G_TYPE_LONG:
-                adjustment = gtk_typed_adjustment_new (GParamSpecLong, pspec, number, 1, 10);
-                break;
-            case G_TYPE_ULONG:
-                adjustment = gtk_typed_adjustment_new (GParamSpecULong, pspec, number, 1, 10);
-                break;
-            case G_TYPE_INT64:
-                adjustment = gtk_typed_adjustment_new (GParamSpecInt64, pspec, number, 1, 10);
-                break;
-            case G_TYPE_UINT64:
-                adjustment = gtk_typed_adjustment_new (GParamSpecUInt64, pspec, number, 1, 10);
-                break;
-            case G_TYPE_FLOAT:
-                adjustment = gtk_typed_adjustment_new (GParamSpecFloat, pspec, number, 0.05, 10);
-                break;
-            case G_TYPE_DOUBLE:
-                adjustment = gtk_typed_adjustment_new (GParamSpecDouble, pspec, number, 0.05, 10);
-                break;
+            clear_adjustment (G_OBJECT (priv->renderer));
+            g_object_set (priv->renderer, "adjustment", adjustment, NULL);
         }
+    }
+    else {
+        g_object_set (priv->renderer, "mode", GTK_CELL_RENDERER_MODE_INERT, NULL);
 
-        clear_adjustment (G_OBJECT (priv->renderer));
-        g_object_set (priv->renderer,
-                "editable", TRUE,
-                "adjustment", adjustment,
-                NULL);
+        if (!GTK_IS_CELL_RENDERER_TOGGLE (priv->renderer))
+            g_object_set (priv->renderer, "foreground", "#aaaaaa", NULL);
     }
 
     if (text != NULL) {
