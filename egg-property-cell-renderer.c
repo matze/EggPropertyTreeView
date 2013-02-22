@@ -494,6 +494,8 @@ egg_property_cell_renderer_dispose (GObject *object)
     priv = EGG_PROPERTY_CELL_RENDERER_GET_PRIVATE (object);
     g_object_unref (priv->object);
     g_hash_table_destroy (priv->combo_models);
+
+    G_OBJECT_CLASS (egg_property_cell_renderer_parent_class)->dispose (object);
 }
 
 static void

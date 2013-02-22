@@ -99,8 +99,28 @@ egg_property_tree_view_new (GObject *object)
 }
 
 static void
+egg_property_tree_view_dispose (GObject *object)
+{
+    EggPropertyTreeViewPrivate *priv;
+
+    priv = EGG_PROPERTY_TREE_VIEW_GET_PRIVATE (object);
+
+    if (priv->list_store) {
+        g_object_unref (priv->list_store);
+        priv->list_store = NULL;
+    }
+
+    G_OBJECT_CLASS (egg_property_tree_view_parent_class)->dispose (object);
+}
+
+static void
 egg_property_tree_view_class_init (EggPropertyTreeViewClass *klass)
 {
+    GObjectClass *oclass;
+
+    oclass = G_OBJECT_CLASS (klass);
+    oclass->dispose = egg_property_tree_view_dispose;
+
     g_type_class_add_private (klass, sizeof (EggPropertyTreeViewPrivate));
 }
 
