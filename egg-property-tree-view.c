@@ -37,7 +37,8 @@ enum
 };
 
 static void
-egg_property_tree_view_populate_model_with_properties (GtkListStore *model, GObject *object)
+egg_property_tree_view_populate_model_with_properties (GtkListStore *model,
+                                                       GObject *object)
 {
     GParamSpec **pspecs;
     GObjectClass *oclass;

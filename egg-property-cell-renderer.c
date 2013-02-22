@@ -52,26 +52,31 @@ enum
 static GParamSpec *egg_property_cell_renderer_properties[N_PROPERTIES] = { NULL, };
 
 GtkCellRenderer *
-egg_property_cell_renderer_new (GObject         *object,
-                                GtkListStore    *list_store)
+egg_property_cell_renderer_new (GObject *object,
+                                GtkListStore *list_store)
 {
     EggPropertyCellRenderer *renderer;
 
     renderer = EGG_PROPERTY_CELL_RENDERER (g_object_new (EGG_TYPE_PROPERTY_CELL_RENDERER, NULL));
     renderer->priv->object = object;
     renderer->priv->list_store = list_store;
+    g_object_ref (object);
     return GTK_CELL_RENDERER (renderer);
 }
 
 static GParamSpec *
-get_pspec_from_object (GObject *object, const gchar *prop_name)
+get_pspec_from_object (GObject *object,
+                       const gchar *prop_name)
 {
     GObjectClass *oclass = G_OBJECT_GET_CLASS (object);
     return g_object_class_find_property (oclass, prop_name);
 }
 
 static void
-get_string_double_repr (GObject *object, const gchar *prop_name, gchar **text, gdouble *number)
+get_string_double_repr (GObject *object,
+                        const gchar *prop_name,
+                        gchar **text,
+                        gdouble *number)
 {
     GParamSpec *pspec;
     GValue from = { 0 };
@@ -484,8 +489,11 @@ egg_property_cell_renderer_start_editing (GtkCellRenderer        *cell,
 static void
 egg_property_cell_renderer_dispose (GObject *object)
 {
-    EggPropertyCellRenderer *renderer = EGG_PROPERTY_CELL_RENDERER (object);
-    g_hash_table_destroy (renderer->priv->combo_models);
+    EggPropertyCellRendererPrivate *priv;
+
+    priv = EGG_PROPERTY_CELL_RENDERER_GET_PRIVATE (object);
+    g_object_unref (priv->object);
+    g_hash_table_destroy (priv->combo_models);
 }
 
 static void
