@@ -119,7 +119,7 @@ egg_property_cell_renderer_set_renderer (EggPropertyCellRenderer    *renderer,
     EggPropertyCellRendererPrivate *priv;
     GParamSpec *pspec;
     gchar *text = NULL;
-    gdouble number;
+    gdouble number = 0.0;
 
     priv = EGG_PROPERTY_CELL_RENDERER_GET_PRIVATE (renderer);
     pspec = get_pspec_from_object (priv->object, prop_name);
@@ -584,7 +584,7 @@ egg_property_cell_renderer_init (EggPropertyCellRenderer *renderer)
             G_CALLBACK (egg_property_cell_renderer_spin_edited_cb), priv);
 
     g_signal_connect (priv->text_renderer, "edited",
-            G_CALLBACK (egg_property_cell_renderer_text_edited_cb), NULL);
+            G_CALLBACK (egg_property_cell_renderer_text_edited_cb), priv);
 
     g_signal_connect (priv->toggle_renderer, "toggled",
             G_CALLBACK (egg_property_cell_renderer_toggle_cb), priv);
