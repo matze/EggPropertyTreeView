@@ -46,8 +46,10 @@ struct _EggPropertyTreeViewClass
     GtkTreeViewClass parent_class;
 };
 
-GType           egg_property_tree_view_get_type (void)              G_GNUC_CONST;
-GtkWidget*      egg_property_tree_view_new      (GObject *object);
+GtkWidget*  egg_property_tree_view_new          (GObject                *object);
+void        egg_property_tree_view_set_object   (EggPropertyTreeView    *view,
+                                                 GObject                *object);
+GType       egg_property_tree_view_get_type     (void)              G_GNUC_CONST;
 
 G_END_DECLS
 

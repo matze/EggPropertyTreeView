@@ -27,7 +27,7 @@ on_delete_event (GtkWidget *widget, GdkEvent *event, gpointer user_data)
 int
 main (int argc, char* argv[])
 {
-    GtkWidget *window; 
+    GtkWidget *window;
     GtkWidget *scrolled_window;
     GtkWidget *tree_view;
 

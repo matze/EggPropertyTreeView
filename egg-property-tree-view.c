@@ -28,17 +28,24 @@ struct _EggPropertyTreeViewPrivate
     GtkListStore *list_store;
 };
 
-enum
-{
+enum {
+    PROP_0,
+    PROP_OBJECT,
+    N_PROPERTIES
+};
+
+enum {
     COLUMN_PROP_NAME,
     COLUMN_PROP_ROW,
     COLUMN_PROP_ADJUSTMENT,
     N_COLUMNS
 };
 
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
+
 static void
-egg_property_tree_view_populate_model_with_properties (GtkListStore *model,
-                                                       GObject *object)
+populate_model_with_properties (GtkListStore *model,
+                                GObject *object)
 {
     GParamSpec **pspecs;
     GObjectClass *oclass;
@@ -66,36 +73,91 @@ egg_property_tree_view_populate_model_with_properties (GtkListStore *model,
     g_free (pspecs);
 }
 
-GtkWidget *
-egg_property_tree_view_new (GObject *object)
+static void
+append_property_columns (EggPropertyTreeView *view,
+                         GObject *object)
 {
-    EggPropertyTreeView *property_tree_view;
     GtkTreeView *tree_view;
     GtkTreeViewColumn *prop_column, *value_column;
     GtkCellRenderer *prop_renderer, *value_renderer;
-    GtkListStore *list_store;
 
-    property_tree_view = EGG_PROPERTY_TREE_VIEW (g_object_new (EGG_TYPE_PROPERTY_TREE_VIEW, NULL));
-    list_store = property_tree_view->priv->list_store;
-    tree_view = GTK_TREE_VIEW (property_tree_view);
-
-    egg_property_tree_view_populate_model_with_properties (list_store, object);
-    gtk_tree_view_set_model (tree_view, GTK_TREE_MODEL (list_store));
-
+    tree_view = GTK_TREE_VIEW (view);
     prop_renderer = gtk_cell_renderer_text_new ();
+    value_renderer = egg_property_cell_renderer_new (object, view->priv->list_store);
+
     prop_column = gtk_tree_view_column_new_with_attributes ("Property", prop_renderer,
             "text", COLUMN_PROP_NAME,
             NULL);
 
-    value_renderer = egg_property_cell_renderer_new (object, list_store);
     value_column = gtk_tree_view_column_new_with_attributes ("Value", value_renderer,
             "prop-name", COLUMN_PROP_NAME,
             NULL);
 
     gtk_tree_view_append_column (tree_view, prop_column);
     gtk_tree_view_append_column (tree_view, value_column);
+}
 
-    return GTK_WIDGET (tree_view);
+GtkWidget *
+egg_property_tree_view_new (GObject *object)
+{
+    EggPropertyTreeView *view;
+
+    view = EGG_PROPERTY_TREE_VIEW (g_object_new (EGG_TYPE_PROPERTY_TREE_VIEW, NULL));
+
+    if (object)
+        egg_property_tree_view_set_object (view, object);
+
+    return GTK_WIDGET (view);
+}
+
+static void
+remove_columns (GtkTreeView *view)
+{
+    GList *columns;
+
+    columns = gtk_tree_view_get_columns (view);
+
+    for (GList *it = g_list_first (columns); it != NULL; it = g_list_next (it)) {
+        GtkTreeViewColumn *column;
+
+        column = GTK_TREE_VIEW_COLUMN (it->data);
+        gtk_tree_view_remove_column (view, column);
+    }
+}
+
+void
+egg_property_tree_view_set_object (EggPropertyTreeView *view,
+                                   GObject *object)
+{
+    EggPropertyTreeViewPrivate *priv;
+
+    priv = EGG_PROPERTY_TREE_VIEW_GET_PRIVATE (view);
+
+    remove_columns (GTK_TREE_VIEW (view));
+    gtk_list_store_clear (priv->list_store);
+
+    populate_model_with_properties (priv->list_store, object);
+    gtk_tree_view_set_model (GTK_TREE_VIEW (view),
+                             GTK_TREE_MODEL (priv->list_store));
+    append_property_columns (view, object);
+}
+
+static void
+egg_property_tree_view_set_property (GObject        *object,
+                                     guint           property_id,
+                                     const GValue   *value,
+                                     GParamSpec     *pspec)
+{
+    switch (property_id) {
+        case PROP_OBJECT:
+            egg_property_tree_view_set_object (EGG_PROPERTY_TREE_VIEW (object),
+                                               g_value_get_object (value));
+            break;
+
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            return;
+    }
 }
 
 static void
@@ -119,7 +181,17 @@ egg_property_tree_view_class_init (EggPropertyTreeViewClass *klass)
     GObjectClass *oclass;
 
     oclass = G_OBJECT_CLASS (klass);
+    oclass->set_property = egg_property_tree_view_set_property;
     oclass->dispose = egg_property_tree_view_dispose;
+
+    properties[PROP_OBJECT] =
+        g_param_spec_object ("object",
+                             "GObject to observe",
+                             "GObject to observe",
+                             G_TYPE_OBJECT,
+                             G_PARAM_WRITABLE);
+
+    g_object_class_install_property (oclass, PROP_OBJECT, properties[PROP_OBJECT]);
 
     g_type_class_add_private (klass, sizeof (EggPropertyTreeViewPrivate));
 }
