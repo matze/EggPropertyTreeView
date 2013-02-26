@@ -26,6 +26,7 @@ G_DEFINE_TYPE (EggPropertyTreeView, egg_property_tree_view, GTK_TYPE_TREE_VIEW)
 struct _EggPropertyTreeViewPrivate
 {
     GtkListStore *list_store;
+    GObject *object;
 };
 
 enum {
@@ -133,6 +134,17 @@ egg_property_tree_view_set_object (EggPropertyTreeView *view,
 
     priv = EGG_PROPERTY_TREE_VIEW_GET_PRIVATE (view);
 
+    if (priv->object == object)
+        return;
+
+    if (priv->object != NULL) {
+        g_object_unref (priv->object);
+        priv->object = NULL;
+    }
+
+    priv->object = object;
+    g_object_ref (object);
+
     remove_columns (GTK_TREE_VIEW (view));
     gtk_list_store_clear (priv->list_store);
 
@@ -172,6 +184,11 @@ egg_property_tree_view_dispose (GObject *object)
         priv->list_store = NULL;
     }
 
+    if (priv->object) {
+        g_object_unref (priv->object);
+        priv->object = NULL;
+    }
+
     G_OBJECT_CLASS (egg_property_tree_view_parent_class)->dispose (object);
 }
 
@@ -203,5 +220,6 @@ egg_property_tree_view_init (EggPropertyTreeView *tree_view)
 
     tree_view->priv = priv = EGG_PROPERTY_TREE_VIEW_GET_PRIVATE (tree_view);
     priv->list_store = gtk_list_store_new (N_COLUMNS, G_TYPE_STRING, G_TYPE_BOOLEAN, GTK_TYPE_ADJUSTMENT);
+    priv->object = NULL;
 }
 
